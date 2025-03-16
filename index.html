@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pemesanan Menu Bukber</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"
+    />
+    <style>
+      .scrollable-table {
+        max-height: 300px;
+        overflow-y: auto;
+        display: block;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 p-6">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+      <h1 class="text-2xl font-bold mb-4 text-center">Pemesanan Menu Bukber</h1>
+
+      <label class="block mb-2 font-semibold">Nama Pemesan:</label>
+      <input
+        type="text"
+        id="nama-pemesan"
+        class="border px-2 py-1 w-full mb-4"
+        placeholder="Masukkan nama Anda"
+      />
+
+      <h2 class="text-xl font-semibold mt-4">Pilih Kategori</h2>
+      <select
+        id="kategori"
+        class="border px-2 py-1 w-full mb-4"
+        onchange="loadMenu()"
+      >
+        <option value="">Pilih Kategori</option>
+        <option value="Makanan">Makanan</option>
+        <option value="Minuman">Minuman</option>
+      </select>
+
+      <h2 class="text-xl font-semibold mt-4">Cari Menu</h2>
+      <input
+        type="text"
+        id="search-menu"
+        class="border px-2 py-1 w-full mb-4"
+        placeholder="Cari menu..."
+        oninput="loadMenu()"
+      />
+
+      <h2 class="text-xl font-semibold mt-4">Daftar Menu</h2>
+      <div class="scrollable-table">
+        <table
+          class="table-auto w-full border-collapse border border-gray-300 mt-2"
+        >
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="border border-gray-300 px-4 py-2">Nama Menu</th>
+              <th class="border border-gray-300 px-4 py-2">Harga</th>
+              <th class="border border-gray-300 px-4 py-2">Jumlah</th>
+            </tr>
+          </thead>
+          <tbody id="menu-list"></tbody>
+        </table>
+      </div>
+
+      <h2 class="text-xl font-semibold mt-6">Pesanan Anda</h2>
+      <div class="overflow-x-auto">
+        <table
+          class="table-auto w-full border-collapse border border-gray-300 mt-2"
+        >
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="border border-gray-300 px-4 py-2">Nama Menu</th>
+              <th class="border border-gray-300 px-4 py-2">Harga</th>
+              <th class="border border-gray-300 px-4 py-2">Jumlah</th>
+              <th class="border border-gray-300 px-4 py-2">Total</th>
+            </tr>
+          </thead>
+          <tbody id="order-list"></tbody>
+        </table>
+      </div>
+
+      <h3 class="text-lg font-bold mt-4">
+        Total Harga: <span id="total-price">Rp 0</span>
+      </h3>
+      <button
+        id="print-order"
+        class="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
+        onclick="printOrder()"
+      >
+        Cetak Pesanan
+      </button>
+    </div>
+
+    <script>
+      function formatRupiah(angka) {
+        return angka.toLocaleString("id-ID");
+      }
+
+      let menuData = [];
+      let orderData = [];
+
+      fetch("menu.json")
+        .then((response) => response.json())
+        .then((data) => {
+          menuData = data;
+        });
+
+      function loadMenu() {
+        const kategori = document.getElementById("kategori").value;
+        const searchKeyword = document
+          .getElementById("search-menu")
+          .value.toLowerCase();
+        const menuList = document.getElementById("menu-list");
+        menuList.innerHTML = "";
+
+        menuData
+          .filter(
+            (item) =>
+              (kategori === "" || item.Kategori === kategori) &&
+              item.Nama.toLowerCase().includes(searchKeyword)
+          )
+          .forEach((item) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                    <td class='border border-gray-300 px-4 py-2'>${
+                      item.Nama
+                    }</td>
+                    <td class='border border-gray-300 px-4 py-2'>Rp ${formatRupiah(
+                      item.Harga
+                    )}</td>
+                    <td class='border border-gray-300 px-4 py-2'>
+                        <input type='number' min='0' value='0' class='quantity border px-2 py-1 w-16' data-name='${
+                          item.Nama
+                        }' data-price='${
+              item.Harga
+            }' oninput='updateOrder(this)'>
+                    </td>
+                `;
+            menuList.appendChild(row);
+          });
+      }
+
+      function updateOrder(input) {
+        const name = input.dataset.name;
+        const price = parseInt(input.dataset.price);
+        const quantity = parseInt(input.value);
+
+        const existingOrder = orderData.find((item) => item.Nama === name);
+        if (existingOrder) {
+          existingOrder.Jumlah = quantity;
+          existingOrder.Total = quantity * price;
+        } else {
+          orderData.push({
+            Nama: name,
+            Harga: price,
+            Jumlah: quantity,
+            Total: quantity * price,
+          });
+        }
+
+        orderData = orderData.filter((item) => item.Jumlah > 0);
+        displayOrders();
+      }
+
+      function displayOrders() {
+        const orderList = document.getElementById("order-list");
+        orderList.innerHTML = "";
+        let totalPrice = 0;
+
+        orderData.forEach((item) => {
+          totalPrice += item.Total;
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                    <td class='border border-gray-300 px-4 py-2'>${
+                      item.Nama
+                    }</td>
+                    <td class='border border-gray-300 px-4 py-2'>Rp ${formatRupiah(
+                      item.Harga
+                    )}</td>
+                    <td class='border border-gray-300 px-4 py-2'>${
+                      item.Jumlah
+                    }</td>
+                    <td class='border border-gray-300 px-4 py-2'>Rp ${formatRupiah(
+                      item.Total
+                    )}</td>
+                `;
+          orderList.appendChild(row);
+        });
+        document.getElementById("total-price").textContent = `Rp ${formatRupiah(
+          totalPrice
+        )}`;
+      }
+
+      function printOrder() {
+        const pemesan = document.getElementById("nama-pemesan").value;
+        if (!pemesan) {
+          alert("Silakan masukkan nama pemesan terlebih dahulu.");
+          return;
+        }
+
+        let struk = `Nama Pemesan: ${pemesan}\n\nPesanan Anda:\n`;
+        orderData.forEach((item) => {
+          struk += `${item.Nama} x${item.Jumlah} = Rp ${formatRupiah(
+            item.Total
+          )}\n`;
+        });
+        struk += `\nTotal Harga: Rp ${
+          document.getElementById("total-price").textContent
+        }`;
+
+        const blob = new Blob([struk], { type: "text/plain" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "Struk_Pesanan.txt";
+        link.click();
+      }
+    </script>
+  </body>
+</html>
